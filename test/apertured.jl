@@ -13,7 +13,7 @@ using BlockRegistrationScheduler, RegisterDriver, RegisterWorkerApertures
         using BlockRegistrationScheduler, RegisterDriver, RegisterWorkerApertures
     end)
 end
-using Base.Test
+using Test
 
 ### Apertured registration
 # Create the data
@@ -23,7 +23,7 @@ shift_amplitude = 5
 u_dfm = shift_amplitude*randn(2, gridsize..., 4)
 img = AxisArray(SharedArray{Float64}((size(fixed)..., 4), pids = union(myid(), aperturedprocs)), :y, :x, :time)
 tax = timeaxis(img)
-knots = map(d->linspace(1,size(fixed,d),gridsize[d]), (1,2))
+knots = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 for i = 1:4
     ϕ_dfm = GridDeformation(u_dfm[:,:,:,i], knots)
     img[tax(i)] = warp(fixed, ϕ_dfm)

@@ -1,5 +1,3 @@
-__precompile__()
-
 module RegisterWorkerApertures
 
 using Images, AffineTransforms, Interpolations
@@ -11,7 +9,7 @@ import RegisterWorkerShell: worker, init!, close!
 
 export Apertures, monitor, monitor!, worker, workerpid
 
-type Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
+mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
     fixed::A
     knots::NTuple{N,K}
     maxshift::NTuple{N,Int}
@@ -127,9 +125,9 @@ pre-processing function, but see also `PreprocessSNF`.
 ```
 
 """
-function Apertures{K,N}(fixed, knots::NTuple{N,K}, maxshift, λrange, preprocess=identity; overlap=zeros(Int, N), normalization=:pixels, thresh_fac=(0.5)^ndims(fixed), thresh=nothing, correctbias::Bool=true, pid=1, dev=-1)
+function Apertures(fixed, knots::NTuple{N,K}, maxshift, λrange, preprocess=identity; overlap=zeros(Int, N), normalization=:pixels, thresh_fac=(0.5)^ndims(fixed), thresh=nothing, correctbias::Bool=true, pid=1, dev=-1) where {K,N}
     gridsize = map(length, knots)
-    overlap_t = (overlap...) #Make tuple
+    overlap_t = (overlap...,) #Make tuple
     length(overlap) == N || throw(DimensionMismatch("overlap must have $N entries"))
     nimages(fixed) == 1 || error("Register to a single image")
     isa(λrange, Number) || isa(λrange, Tuple{Number,Number}) || error("λrange must be a number or 2-tuple")
@@ -199,10 +197,10 @@ function worker(algorithm::Apertures, img, tindex, mon)
     mon
 end
 
-cudatype{T<:Union{Float32,Float64}}(::Type{T}) = T
+cudatype(::Type{T}) where {T<:Union{Float32,Float64}} = T
 cudatype(::Any) = Float32
 
-myconvert{T}(::Type{Array{T}}, A::Array{T}) = A
-myconvert{T}(::Type{Array{T}}, A::AbstractArray) = copy!(Array{T}(size(A)), A)
+myconvert(::Type{Array{T}}, A::Array{T}) where {T} = A
+myconvert(::Type{Array{T}}, A::AbstractArray) where {T} = copy!(Array{T}(size(A)), A)
 
 end # module

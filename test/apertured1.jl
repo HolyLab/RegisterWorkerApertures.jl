@@ -2,7 +2,7 @@ using Images, TestImages, StaticArrays, Interpolations
 using BlockRegistration, BlockRegistrationScheduler
 using RegisterMismatch
 using RegisterDriver, RegisterWorkerApertures, RegisterDeformation
-using Base.Test
+using Test
 
 ### Apertured registration
 # Create the data
@@ -10,7 +10,7 @@ img = testimage("cameraman")
 gridsizeg = (4,4) # for generation
 shift_amplitude = 10
 u_dfm = shift_amplitude*randn(2, gridsizeg...)
-knotsg = map(d->linspace(1,size(img,d),gridsizeg[d]), (1,2))
+knotsg = map(d->range(1, stop=size(img,d), length=gridsizeg[d]), (1,2))
 ϕ_dfm = GridDeformation(u_dfm, knotsg)
 wimg = warp(img, ϕ_dfm)
 o = 3*shift_amplitude
@@ -23,7 +23,7 @@ moving = wimg[o+1:size(img,1)-o, o+1:size(img,2)-o]
 # To make sure it runs, try the example in the docs, even though it's
 # not well-tuned for this case
 pp = img -> imfilter(img, KernelFactors.IIRGaussian((3,3)))
-knots = (linspace(1, size(fixed,1), 5), linspace(1, size(fixed,2), 7))
+knots = (range(1, stop=size(fixed,1), length=5), range(1, stop=size(fixed,2), length=7))
 fixedfilt = pp(fixed)
 maxshift = (30,30)
 alg = Apertures(fixedfilt, knots, maxshift, λrange, pp)
@@ -35,7 +35,7 @@ datapenalty = mon[:datapenalty]
 
 # Perform the registration
 gridsize = (17,17)  # for correction
-knots = map(d->linspace(1,size(fixed,d),gridsize[d]), (1,2))
+knots = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 umax = maximum(abs.(u_dfm))
 maxshift = (ceil(Int, umax)+5, ceil(Int, umax)+5)
 algorithm = RegisterWorkerApertures.Apertures(fixed, knots, maxshift, λrange)
