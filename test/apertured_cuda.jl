@@ -20,7 +20,7 @@ pp = img -> imfilter(img, KernelFactors.IIRGaussian((3,3)))
 knots = (range(1, stop=size(fixed,1), length=5), range(1, stop=size(fixed,2), length=7))
 fixedfilt = pp(fixed)
 maxshift = (30,30)
-alg = Apertures(fixedfilt, knots, maxshift, λrange, pp)
+alg = Apertures(fixedfilt, knots, maxshift, λrange, pp, dev=0)
 mm_package_loader(alg)
 mon = monitor(alg, (), Dict(:λs=>0, :datapenalty=>0, :λ=>0, :u=>0, :warped0 => Array{Float64}(undef, size(fixed))))
 mon = driver(alg, moving, mon)
@@ -33,7 +33,7 @@ gridsize = (17,17)  # for correction
 knots = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 umax = maximum(abs.(u_dfm))
 maxshift = (ceil(Int, umax)+5, ceil(Int, umax)+5)
-algorithm = RegisterWorkerApertures.Apertures(fixed, knots, maxshift, λrange)
+algorithm = RegisterWorkerApertures.Apertures(fixed, knots, maxshift, λrange, dev=0)
 mm_package_loader(algorithm)
 mon = Dict{Symbol,Any}(:u => Array{SVector{2,Float64}}(undef, gridsize),
                        :mismatch => 0.0,
@@ -47,7 +47,7 @@ mon = driver(algorithm, moving, mon)
 apertureoverlap = 0.3;  #Aperture overlap percentage (between 0 and 1)
 aperture_width = default_aperture_width(fixed, gridsize)
 overlap_t = map(x->round(Int64,x*apertureoverlap), aperture_width)
-algorithm = RegisterWorkerApertures.Apertures(fixed, knots, maxshift, λrange; overlap=overlap_t)
+algorithm = RegisterWorkerApertures.Apertures(fixed, knots, maxshift, λrange; overlap=overlap_t, dev=0)
 mm_package_loader(algorithm)
 mon_overlap = Dict{Symbol,Any}(:u => Array{SVector{2,Float64}}(undef, gridsize),
                        :mismatch => 0.0,
@@ -56,8 +56,6 @@ mon_overlap = Dict{Symbol,Any}(:u => Array{SVector{2,Float64}}(undef, gridsize),
                        :sigmoid_quality => 0.0,
                        :warped => copy(moving))
 mon_overlap = driver(algorithm, moving, mon_overlap)
-
-
 
 # Analysis
 ϕ = GridDeformation(mon[:u], knots)

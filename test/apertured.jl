@@ -1,20 +1,3 @@
-aperturedprocs = addprocs(2)
-# aperturedprocs = [myid()]
-
-using Images, TestImages, StaticArrays
-using BlockRegistration, RegisterDeformation, RegisterCore
-using BlockRegistrationScheduler, RegisterDriver, RegisterWorkerApertures
-
-# Work around julia #3674
-@sync for p in aperturedprocs
-    @spawnat p eval(quote
-        using Images, TestImages, StaticArrays
-        using BlockRegistration, RegisterDeformation
-        using BlockRegistrationScheduler, RegisterDriver, RegisterWorkerApertures
-    end)
-end
-using Test
-
 ### Apertured registration
 # Create the data
 fixed = testimage("cameraman")
@@ -32,10 +15,11 @@ end
 fn = joinpath(tempdir(), "apertured.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
 algorithms = Apertures[Apertures(fixed, knots, maxshift, 0.001; pid=p) for p in aperturedprocs]
+mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
-               Dict(:u => Array{SVector{2,Float64}}(gridsize),
-                    :warped => Array{Float64}(size(fixed)),
+               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
+                    :warped => Array{Float64}(undef, size(fixed)),
                     :mismatch => 0.0))
 driver(fn, algorithms, img, mons)
 
@@ -43,11 +27,12 @@ driver(fn, algorithms, img, mons)
 fn_pp = joinpath(tempdir(), "apertured_pp.jld")
 pp = PreprocessSNF(0.1, [2,2], [10,10])
 algorithms = Apertures[Apertures(pp(fixed), knots, maxshift, 0.001, pp; pid=p) for p in aperturedprocs]
+mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
-               Dict(:u => Array{SVector{2,Float64}}(gridsize),
-                    :warped => Array{Float64}(size(fixed)),
-                    :warped0 => Array{Float64}(size(fixed)),
+               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
+                    :warped => Array{Float64}(undef, size(fixed)),
+                    :warped0 => Array{Float64}(undef, size(fixed)),
                     :mismatch => 0.0))
 driver(fn_pp, algorithms, img, mons)
 
@@ -64,10 +49,11 @@ end
 fnt = joinpath(tempdir(), "apertured_translate.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
 algorithms = Apertures[Apertures(fixed, knots, maxshift, 0.001; pid=p) for p in aperturedprocs]
+mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
-               Dict(:u => Array{SVector{2,Float64}}(gridsize),
-                    :warped => Array{Float64}(size(fixed)),
+               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
+                    :warped => Array{Float64}(undef, size(fixed)),
                     :mismatch => 0.0))
 driver(fnt, algorithms, imgt, mons)
 
@@ -75,7 +61,7 @@ driver(fnt, algorithms, imgt, mons)
 
 rmprocs(aperturedprocs, waitfor=1.0)
 
-using JLD, RegisterCore, RegisterMismatch
+#using JLD, RegisterCore, RegisterMismatch
 
 jldopen(fnt) do f
     mm = read(f["mismatch"])

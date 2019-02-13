@@ -1,11 +1,12 @@
 module RegisterWorkerApertures
 
-using Images, AffineTransforms, Interpolations
-using RegisterCore, RegisterDeformation, RegisterFit, RegisterPenalty, RegisterOptimize
+using Images, CoordinateTransformations, Interpolations, SharedArrays
+using RegisterCore, RegisterDeformation, RegisterFit, RegisterPenalty
+using RegisterMismatchCommon, RegisterOptimize
 # Note: RegisterMismatch/RegisterMismatchCuda is selected below
 using RegisterWorkerShell, RegisterDriver
 
-import RegisterWorkerShell: worker, init!, close!
+import RegisterWorkerShell: worker, init!, close!, load_mm_package
 
 export Apertures, monitor, monitor!, worker, workerpid
 
@@ -25,41 +26,43 @@ mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
     cuda_objects::Dict{Symbol,Any}
 end
 
-function init!(algorithm::Apertures)
-    if algorithm.dev >= 0
-        eval(:(using CUDArt, RegisterMismatchCuda))
-        cuda_init!(algorithm)
+function load_mm_package(dev)
+    if dev >= 0
+        eval(:(using CUDAdrv, CUDAnative, CuArrays, RegisterMismatchCuda))
     else
         eval(:(using RegisterMismatch))
     end
     nothing
 end
 
+function init!(algorithm::Apertures)
+    if algorithm.dev >= 0
+        cuda_init!(algorithm)
+    end
+    nothing
+end
+
 function cuda_init!(algorithm)
-    CUDArt.init(algorithm.dev)
-    RegisterMismatchCuda.init([algorithm.dev])
-    # Allocate the CUDA objects once at the beginning: even
-    # though all temporary arrays appear to be freed, repeated
-    # allocation results in "out of memory" errors. (CUDA bug?)
-    device(algorithm.dev)
+    dev = CuDevice(algorithm.dev)
+    global old_active_context = CuCurrentContext()
+    if old_active_context == nothing || device(old_active_context) != dev
+        device!(dev)
+    end
     fixed = algorithm.fixed
     T = cudatype(eltype(fixed))
-    d_fixed  = CudaPitchedArray(myconvert(Array{T}, sdata(data(fixed))))
+    d_fixed  = CuArray{T}(sdata(fixed))
     algorithm.cuda_objects[:d_fixed] = d_fixed
     algorithm.cuda_objects[:d_moving] = similar(d_fixed)
     gridsize = map(length, algorithm.knots)
     aperture_width = default_aperture_width(algorithm.fixed, gridsize)
-    algorithm.cuda_objects[:cms] = CMStorage(T, aperture_width, algorithm.maxshift)
-    nothing
+    algorithm.cuda_objects[:cms] = CMStorage{T}(undef, aperture_width, algorithm.maxshift)
 end
 
 function close!(algorithm::Apertures)
     if algorithm.dev >= 0
-        for (k,v) in algorithm.cuda_objects
-            free(v)
+        if old_active_context != nothing
+            activate(old_active_context)
         end
-        RegisterMismatchCuda.close()
-        CUDArt.close(algorithm.dev)
     end
     nothing
 end
@@ -146,19 +149,19 @@ function worker(algorithm::Apertures, img, tindex, mon)
     gridsize = map(length, algorithm.knots)
     use_cuda = algorithm.dev >= 0
     if use_cuda
-        device(algorithm.dev)
+        device!(CuDevice(algorithm.dev))
         d_fixed  = algorithm.cuda_objects[:d_fixed]
         d_moving = algorithm.cuda_objects[:d_moving]
         cms      = algorithm.cuda_objects[:cms]
-        copy!(d_moving, moving)
+        copyto!(d_moving, moving)
         cs = coords_spatial(img)
-        aperture_centers = aperture_grid(size(img, cs...), gridsize)
+        aperture_centers = aperture_grid(map(d->size(img,d),cs), gridsize)
         mms = allocate_mmarrays(eltype(cms), gridsize, algorithm.maxshift)
         mismatch_apertures!(mms, d_fixed, d_moving, aperture_centers, cms; normalization=algorithm.normalization)
     else
         #mms = mismatch_apertures(algorithm.fixed, moving, gridsize, algorithm.maxshift; normalization=algorithm.normalization)
         cs = coords_spatial(img) #
-        aperture_centers = aperture_grid(size(img, cs...), gridsize)  #
+        aperture_centers = aperture_grid(map(d->size(img,d),cs), gridsize)
         aperture_width = default_aperture_width(algorithm.fixed, gridsize, algorithm.overlap)  #
         mms = mismatch_apertures(algorithm.fixed, moving, aperture_centers, aperture_width, algorithm.maxshift; normalization=algorithm.normalization)  #
     end
@@ -167,8 +170,8 @@ function worker(algorithm::Apertures, img, tindex, mon)
         correctbias!(mms)
     end
     E0 = zeros(size(mms))
-    cs = Array{Any}(size(mms))
-    Qs = Array{Any}(size(mms))
+    cs = Array{Any}(undef, size(mms))
+    Qs = Array{Any}(undef, size(mms))
     thresh = algorithm.thresh
     for i = 1:length(mms)
         E0[i], cs[i], Qs[i] = qfit(mms[i], thresh; opt=false)
@@ -201,6 +204,6 @@ cudatype(::Type{T}) where {T<:Union{Float32,Float64}} = T
 cudatype(::Any) = Float32
 
 myconvert(::Type{Array{T}}, A::Array{T}) where {T} = A
-myconvert(::Type{Array{T}}, A::AbstractArray) where {T} = copy!(Array{T}(size(A)), A)
+myconvert(::Type{Array{T}}, A::AbstractArray) where {T} = copyto!(Array{T}(undef, size(A)), A)
 
 end # module
