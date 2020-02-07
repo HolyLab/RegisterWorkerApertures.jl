@@ -1,19 +1,12 @@
 using ImageMagick
 using Distributed, SharedArrays, JLD, Test
-using Images, TestImages, StaticArrays, Interpolations
+using ImageCore, ImageAxes, ImageFiltering, TestImages
+using StaticArrays, Interpolations
 using RegisterCore, RegisterDeformation, RegisterMismatchCommon
-using RegisterDriver, RegisterWorkerApertures
+using AxisArrays: AxisArray
 
 aperturedprocs = addprocs(2)
-@sync for p in aperturedprocs
-    @spawnat p eval(quote
-        using Pkg
-        Pkg.activate(".")
-        Pkg.instantiate()
-        using StaticArrays
-        using RegisterWorkerApertures
-    end)
-end
+@everywhere using RegisterWorkerApertures, RegisterDriver
 
 include("apertured.jl")
 include("apertured1.jl")
