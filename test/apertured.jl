@@ -6,15 +6,15 @@ shift_amplitude = 5
 u_dfm = shift_amplitude*randn(2, gridsize..., 4)
 img = AxisArray(SharedArray{Float64}((size(fixed)..., 4), pids = union(myid(), aperturedprocs)), :y, :x, :time)
 tax = timeaxis(img)
-knots = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
+nodes = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 for i = 1:4
-    ϕ_dfm = GridDeformation(u_dfm[:,:,:,i], knots)
+    ϕ_dfm = GridDeformation(u_dfm[:,:,:,i], nodes)
     img[tax(i)] = warp(fixed, ϕ_dfm)
 end
 # Perform the registration
 fn = joinpath(tempdir(), "apertured.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, knots, maxshift, 0.001; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; pid=p) for p in aperturedprocs]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
@@ -26,7 +26,7 @@ driver(fn, algorithms, img, mons)
 # With preprocessing
 fn_pp = joinpath(tempdir(), "apertured_pp.jld")
 pp = PreprocessSNF(0.1, [2,2], [10,10])
-algorithms = Apertures[Apertures(pp(fixed), knots, maxshift, 0.001, pp; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; pid=p) for p in aperturedprocs]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
@@ -42,13 +42,13 @@ u_dfmt = copy(u_dfm)
 for i = 1:4
     fill!(view(u_dfmt, 1, :, :, i), i)
     fill!(view(u_dfmt, 2, :, :, i), 5-i)
-    ϕ_dfm = GridDeformation(u_dfmt[:,:,:,i], knots)
+    ϕ_dfm = GridDeformation(u_dfmt[:,:,:,i], nodes)
     imgt[tax(i)] = warp(fixed, ϕ_dfm)
 end
 
 fnt = joinpath(tempdir(), "apertured_translate.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, knots, maxshift, 0.001; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; pid=p) for p in aperturedprocs]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
