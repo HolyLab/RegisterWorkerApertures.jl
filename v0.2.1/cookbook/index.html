@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Stack-by-stack optimization with RegisterWorkerApertures: a cookbook · RegisterWorkerApertures</title><link href="https://fonts.googleapis.com/css?family=Lato|Roboto+Mono" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.11.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.11.1/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit">RegisterWorkerApertures</span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li class="is-active"><a class="tocitem" href>Stack-by-stack optimization with RegisterWorkerApertures: a cookbook</a><ul class="internal"><li><a class="tocitem" href="#Key-differences-from-BlockRegistration-1"><span>Key differences from BlockRegistration</span></a></li></ul></li><li><a class="tocitem" href="../calcium_imaging/">Notes on registering biological sequences</a></li><li><a class="tocitem" href="../api/">API reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Stack-by-stack optimization with RegisterWorkerApertures: a cookbook</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Stack-by-stack optimization with RegisterWorkerApertures: a cookbook</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/HolyLab/RegisterWorkerApertures.jl/blob/master/docs/src/cookbook.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="cookbook-1"><a class="docs-heading-anchor" href="#cookbook-1">Stack-by-stack optimization with RegisterWorkerApertures: a cookbook</a><a class="docs-heading-anchor-permalink" href="#cookbook-1" title="Permalink"></a></h1><p>To learn how to use this package, we&#39;ll use a small 2d image sequence defined in BlockRegistration</p><pre><code class="language-julia">using Distributed, StaticArrays, RegisterWorkerShell, JLD, FileIO, ImageView
+wpids = addprocs(2)   # add two workers (you can use more if you have the hardware)
+@everywhere using RegisterWorkerApertures, RegisterDriver
+
+#### Load image on the master process
+# Normally this might be `img = load(&quot;myimagefile&quot;)`, but this is a demo
+using BlockRegistration                                # just needed for this demo
+brdir = dirname(dirname(pathof(BlockRegistration)))    # directory of BlockRegistration
+include(joinpath(brdir, &quot;test&quot;, &quot;gen2d.jl&quot;));          # defines `img`
+
+#### Choose the fixed image and set up the parameters (this is similar to BlockRegistration)
+fixedidx = (nimages(img)+1) ÷ 2  # ÷ can be obtained with &quot;\div[TAB]&quot;
+fixed = img[time=fixedidx]
+
+# Important: you should manually inspect fixed to make sure there are
+# no anomalies. Do not proceed to the next step until you have done this.
+
+# Choose the maximum amount of movement you want to allow (set this by visual inspection)
+mxshift = (30, 30)  # 30 pixels along each spatial axis for a 2d+time image
+# Pick a grid size for your registration. Finer grids allow more
+# &quot;detail&quot; in the deformation, but also have more parameters and
+# therefore require higher SNR data.
+gridsize = (3, 3)   # it&#39;s fine to choose something anisotropic
+
+# Choose volume regularization penalty. See the help for BlockRegistration.
+λ = 1e-5
+
+# Compute the nodes from the image and grid
+nodes = map(axes(fixed), gridsize) do ax, g
+    range(first(ax), stop=last(ax), length=g)
+end
+
+#### Set up the workers, the monitor, and run it via the driver
+# Create the worker algorithm structures. We assign one per worker process.
+algorithm = [Apertures(fixed, nodes, mxshift, λ; pid=wpids[i], correctbias=false) for i = 1:length(wpids)]
+
+# Set up the &quot;monitor&quot; which aggregates the results from the workers
+mon = monitor(algorithm, (), Dict{Symbol,Any}(:u=&gt;ArrayDecl(Array{SVector{2,Float64},2}, gridsize)))
+
+# Load the appropriate mismatch package
+mm_package_loader(algorithm)
+
+# Define the output file and run the job
+fileout = &quot;results.register&quot;
+@time driver(fileout, algorithm, img, mon)
+
+# Append important extra information to the file
+jldopen(fileout, &quot;r+&quot;) do io
+    write(io, &quot;fixedidx&quot;, fixedidx)
+    write(io, &quot;nodes&quot;, nodes)
+end</code></pre><p>You should see some output showing which workers are working on which time slices.</p><p>To visualize the results, let&#39;s load the deformation and apply it to the image sequence:</p><pre><code class="language-julia">u = load(fileout, &quot;u&quot;)
+ϕs = griddeformations(u, nodes)   # defined in RegisterDeformation
+
+imgw = similar(img, Gray{Float32});   # eltype needs to be able to store NaN
+for i = 1:nimages(img)
+    # Apply the deformation to the &quot;recorded&quot; image
+    imgw[:,:,i] = warp(img[:,:,i], ϕs[i])
+end</code></pre><p>(See the documentation for BlockRegistration for how to do this when your images are too large to hold in memory.)</p><p>Now you can visualize it with <code>imshow(imgw)</code>.</p><h2 id="Key-differences-from-BlockRegistration-1"><a class="docs-heading-anchor" href="#Key-differences-from-BlockRegistration-1">Key differences from BlockRegistration</a><a class="docs-heading-anchor-permalink" href="#Key-differences-from-BlockRegistration-1" title="Permalink"></a></h2><p>Most of the parameters and choices you&#39;ll make are similar to what you&#39;d do if you&#39;re using BlockRegistration directly. The key changes are that instead of calling the various stages of mismatch calculation and optimization, you instead set up the &quot;algorithm&quot; (one per worker), monitor, and call the driver.</p><p>You can read the help for these in the API reference.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../calcium_imaging/">Notes on registering biological sequences »</a></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> on <span class="colophon-date" title="Thursday 13 February 2020 11:52">Thursday 13 February 2020</span>. Using Julia version 1.3.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
