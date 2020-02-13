@@ -1,7 +1,7 @@
 name = "RegisterWorkerApertures"
 uuid = "a0a6461a-57d1-11e9-363b-71a271cc5699"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
