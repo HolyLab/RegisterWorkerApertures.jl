@@ -1,7 +1,7 @@
 name = "RegisterWorkerApertures"
 uuid = "a0a6461a-57d1-11e9-363b-71a271cc5699"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 CUDAdrv = "c5f51814-7f29-56b8-a69c-e4d8f6be1fde"
@@ -24,7 +24,7 @@ SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-CUDAdrv = "5"
+CUDAdrv = "5, 6"
 CUDAnative = "2"
 CoordinateTransformations = "0.5"
 CuArrays = "1"
