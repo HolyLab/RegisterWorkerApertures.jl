@@ -26,7 +26,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 [compat]
 CUDAdrv = "5, 6"
 CUDAnative = "2"
-CoordinateTransformations = "0.5"
+CoordinateTransformations = "0.5, 0.6"
 CuArrays = "1"
 ImageCore = "0.8.1"
 Interpolations = "0.12"
