@@ -40,7 +40,7 @@ RegisterMismatchCuda = "0.3"
 RegisterOptimize = "0.3"
 RegisterPenalty = "0.2"
 RegisterWorkerShell = "0.2"
-StaticArrays = "0.12"
+StaticArrays = "0.12, 1"
 julia = "1.0"
 
 [extras]
