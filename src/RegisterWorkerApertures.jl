@@ -28,7 +28,7 @@ end
 
 function load_mm_package(dev)
     if dev >= 0
-        eval(:(using CUDAdrv, CUDAnative, CuArrays, RegisterMismatchCuda))
+        eval(:(using CUDA, RegisterMismatchCuda))
     else
         eval(:(using RegisterMismatch))
     end
@@ -44,8 +44,14 @@ end
 
 function cuda_init!(algorithm)
     dev = CuDevice(algorithm.dev)
-    global old_active_context = CuCurrentContext()
-    if old_active_context == nothing || device(old_active_context) != dev
+    global old_active_context
+    try
+        old_active_context = current_context()
+        if old_active_context == nothing || device(old_active_context) != dev
+            device!(dev)
+        end
+    catch e
+        old_active_context = nothing
         device!(dev)
     end
     fixed = algorithm.fixed
