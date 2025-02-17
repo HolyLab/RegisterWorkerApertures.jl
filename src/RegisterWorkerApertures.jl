@@ -38,7 +38,6 @@ end
 function init!(algorithm::Apertures)
     if algorithm.dev >= 0
         cuda_init!(algorithm)
-        CUDA.allowscalar()
     end
     nothing
 end
