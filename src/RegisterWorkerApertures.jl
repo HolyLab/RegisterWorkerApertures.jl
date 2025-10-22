@@ -8,7 +8,7 @@ using RegisterWorkerShell  #, RegisterDriver
 
 import RegisterWorkerShell: worker, init!, close!, load_mm_package
 
-export Apertures, monitor, monitor!, worker, workerpid
+export Apertures, monitor, monitor!, worker
 
 mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
     fixed::A
@@ -21,7 +21,7 @@ mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
     preprocess  # likely of type PreprocessSNF, but could be a function
     normalization::Symbol
     correctbias::Bool
-    workerpid::Int
+    workertid::Int
     dev::Int
     cuda_objects::Dict{Symbol,Any}
 end
@@ -134,7 +134,7 @@ pre-processing function, but see also `PreprocessSNF`.
 ```
 
 """
-function Apertures(fixed, nodes::NTuple{N,K}, maxshift, λrange, preprocess=identity; overlap=zeros(Int, N), normalization=:pixels, thresh_fac=(0.5)^ndims(fixed), thresh=nothing, correctbias::Bool=true, pid=1, dev=-1) where {K,N}
+function Apertures(fixed, nodes::NTuple{N,K}, maxshift, λrange, preprocess=identity; overlap=zeros(Int, N), normalization=:pixels, thresh_fac=(0.5)^ndims(fixed), thresh=nothing, correctbias::Bool=true, tid=1, dev=-1) where {K,N}
     gridsize = map(length, nodes)
     overlap_t = (overlap...,) #Make tuple
     length(overlap) == N || throw(DimensionMismatch("overlap must have $N entries"))
@@ -146,7 +146,7 @@ function Apertures(fixed, nodes::NTuple{N,K}, maxshift, λrange, preprocess=iden
     # T = eltype(fixed) <: AbstractFloat ? eltype(fixed) : Float32
     T = Float64   # Ipopt requires Float64
     λrange = isa(λrange, Number) ? T(λrange) : (T(first(λrange)), T(last(λrange)))
-    Apertures{typeof(fixed),T,K,N}(fixed, nodes, maxshift, AffinePenalty{T,N}(nodes, first(λrange)), overlap_t, λrange, T(thresh), preprocess, normalization, correctbias, pid, dev, Dict{Symbol,Any}())
+    Apertures{typeof(fixed),T,K,N}(fixed, nodes, maxshift, AffinePenalty{T,N}(nodes, first(λrange)), overlap_t, λrange, T(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol,Any}())
 end
 
 function worker(algorithm::Apertures, img, tindex, mon)
