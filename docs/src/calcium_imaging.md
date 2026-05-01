@@ -35,7 +35,8 @@ If you're using such pre-processing, it's important to apply it consistently to 
 fixed = pp(fixed)
 
 # To pass it to the workers: use it as an argument to the algorithm
-algorithm = [Apertures(fixed, nodes, mxshift, λ, pp; pid=wpids[i], correctbias=false) for i = 1:length(wpids)]
+tids = threadids()
+algorithm = [Apertures(fixed, nodes, mxshift, λ, pp; tid=i, correctbias=false) for i = tids]
 ```
 
 ## Temporal median filtering

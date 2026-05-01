@@ -3,11 +3,10 @@
 To learn how to use this package, we'll use a small 2d image sequence defined in BlockRegistration
 
 ```julia
-using Distributed, StaticArrays, RegisterWorkerShell, JLD, FileIO, ImageView
-wpids = addprocs(2)   # add two workers (you can use more if you have the hardware)
-@everywhere using RegisterWorkerApertures, RegisterDriver
+using StaticArrays, RegisterWorkerShell, JLD, FileIO, ImageView
+using RegisterWorkerApertures, RegisterDriver
 
-#### Load image on the master process
+#### Load image
 # Normally this might be `img = load("myimagefile")`, but this is a demo
 using BlockRegistration                                # just needed for this demo
 brdir = dirname(dirname(pathof(BlockRegistration)))    # directory of BlockRegistration
@@ -37,7 +36,8 @@ end
 
 #### Set up the workers, the monitor, and run it via the driver
 # Create the worker algorithm structures. We assign one per worker process.
-algorithm = [Apertures(fixed, nodes, mxshift, λ; pid=wpids[i], correctbias=false) for i = 1:length(wpids)]
+tids = threadids() # To use multi-threads, launch julia with -t option (ex: $ julia -t 10)
+algorithm = [Apertures(fixed, nodes, mxshift, λ; tid=i, correctbias=false) for i = tids]
 
 # Set up the "monitor" which aggregates the results from the workers
 mon = monitor(algorithm, (), Dict{Symbol,Any}(:u=>ArrayDecl(Array{SVector{2,Float64},2}, gridsize)))
