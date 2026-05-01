@@ -1,11 +1,11 @@
 name = "RegisterWorkerApertures"
 uuid = "a0a6461a-57d1-11e9-363b-71a271cc5699"
+version = "0.2.4"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
-version = "0.2.3"
 
 [deps]
-CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 ImageCore = "a09fc81d-aa75-5fe9-8630-4744c3626534"
 Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
 RegisterCore = "67712758-55e7-5c3c-8e85-dda1d7758434"
@@ -22,20 +22,20 @@ SharedArrays = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [compat]
-CoordinateTransformations = "0.5, 0.6"
 CUDA = "3, 4, 5"
+CoordinateTransformations = "0.5, 0.6"
 ImageCore = "0.8.1, 0.9, 0.10"
 Interpolations = "0.12, 0.13, 0.14, 0.15"
 RegisterCore = "0.2.2"
 RegisterDeformation = "0.3, 0.4"
-RegisterDriver = "0.2.1"
+RegisterDriver = "0.2"
 RegisterFit = "0.1, 0.2"
 RegisterMismatch = "0.3, 0.4"
 RegisterMismatchCommon = "0.2"
 RegisterMismatchCuda = "0.3"
 RegisterOptimize = "0.3"
 RegisterPenalty = "0.2, 0.3"
-RegisterWorkerShell = "0.2"
+RegisterWorkerShell = "0.2, 1.0"
 StaticArrays = "0.12, 1"
 julia = "1.10"
 
