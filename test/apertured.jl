@@ -4,7 +4,8 @@ fixed = testimage("cameraman")
 gridsize = (5,5)
 shift_amplitude = 5
 u_dfm = shift_amplitude*randn(2, gridsize..., 4)
-img = AxisArray(SharedArray{Float64}((size(fixed)..., 4), pids = union(myid(), aperturedprocs)), :y, :x, :time)
+aperturedtids = threadids()
+img = AxisArray(Array{Float64}(undef, size(fixed)..., 4), :y, :x, :time)
 tax = timeaxis(img)
 nodes = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 for i = 1:4
@@ -14,7 +15,7 @@ end
 # Perform the registration
 fn = joinpath(tempdir(), "apertured.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
@@ -26,7 +27,7 @@ driver(fn, algorithms, img, mons)
 # With preprocessing
 fn_pp = joinpath(tempdir(), "apertured_pp.jld")
 pp = PreprocessSNF(0.1, [2,2], [10,10])
-algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; tid=t) for t in aperturedtids]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
@@ -48,7 +49,7 @@ end
 
 fnt = joinpath(tempdir(), "apertured_translate.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; pid=p) for p in aperturedprocs]
+algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
 mm_package_loader(algorithms)
 mons = monitor(algorithms,
                (),
@@ -56,10 +57,6 @@ mons = monitor(algorithms,
                     :warped => Array{Float64}(undef, size(fixed)),
                     :mismatch => 0.0))
 driver(fnt, algorithms, imgt, mons)
-
-
-
-rmprocs(aperturedprocs, waitfor=1.0)
 
 #using JLD, RegisterCore, RegisterMismatch
 
