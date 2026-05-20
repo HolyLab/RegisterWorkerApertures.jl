@@ -1,5 +1,5 @@
 DONE: design review
-DONE: API review
+DONE: API review (plan: API_REVIEW_PLAN.md, targeting v1.0.0)
 DONE: update .gitignore
 TODO: format with runic
 TODO: add Aqua.jl
