@@ -55,7 +55,7 @@ function cuda_init!(algorithm)
         device!(dev)
     end
     fixed = algorithm.fixed
-    T = cudatype(eltype(fixed))
+    T = cuda_eltype(eltype(fixed))
     d_fixed  = CuArray{T}(sdata(fixed))
     algorithm.cuda_objects[:d_fixed] = d_fixed
     algorithm.cuda_objects[:d_moving] = similar(d_fixed)
@@ -206,7 +206,7 @@ function worker(algorithm::Apertures, img, tindex, mon)
     mon
 end
 
-cudatype(::Type{T}) where {T<:Union{Float32,Float64}} = T
-cudatype(::Any) = Float32
+cuda_eltype(::Type{T}) where {T<:Union{Float32,Float64}} = T
+cuda_eltype(::Any) = Float32
 
 end # module
