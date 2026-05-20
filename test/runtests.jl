@@ -6,7 +6,7 @@ using RegisterCore, RegisterDeformation, RegisterMismatchCommon
 using RegisterWorkerApertures, RegisterDriver
 using AxisArrays: AxisArray
 
-if !(haskey(ENV,"CI")&&(ENV["CI"]=="true"))
+if !(haskey(ENV, "CI")&&(ENV["CI"] == "true"))
     include("apertured_cuda.jl")
 else
     include("apertured.jl")

@@ -10,20 +10,20 @@ import RegisterWorkerShell: worker, init!, close!, load_mm_package, workertid
 
 export Apertures, monitor, monitor!, worker
 
-mutable struct Apertures{A<:AbstractArray,K,N} <: AbstractWorker
+mutable struct Apertures{A <: AbstractArray, K, N} <: AbstractWorker
     fixed::A
-    nodes::NTuple{N,K}
-    maxshift::NTuple{N,Int}
-    affinepenalty::AffinePenalty{Float64,N}
-    overlap::NTuple{N,Int}
-    λrange::Union{Float64,Tuple{Float64,Float64}}
+    nodes::NTuple{N, K}
+    maxshift::NTuple{N, Int}
+    affinepenalty::AffinePenalty{Float64, N}
+    overlap::NTuple{N, Int}
+    λrange::Union{Float64, Tuple{Float64, Float64}}
     thresh::Float64  # Ipopt requires Float64
     preprocess  # likely of type PreprocessSNF, but could be a function
     normalization::Symbol
     correctbias::Bool
     tid::Int
     dev::Int
-    cuda_objects::Dict{Symbol,Any}
+    cuda_objects::Dict{Symbol, Any}
 end
 
 function load_mm_package(dev)
@@ -32,14 +32,14 @@ function load_mm_package(dev)
     else
         eval(:(using RegisterMismatch))
     end
-    nothing
+    return nothing
 end
 
 function init!(algorithm::Apertures)
     if algorithm.dev >= 0
         cuda_init!(algorithm)
     end
-    nothing
+    return nothing
 end
 
 function cuda_init!(algorithm)
@@ -56,12 +56,12 @@ function cuda_init!(algorithm)
     end
     fixed = algorithm.fixed
     T = cuda_eltype(eltype(fixed))
-    d_fixed  = CuArray{T}(sdata(fixed))
+    d_fixed = CuArray{T}(sdata(fixed))
     algorithm.cuda_objects[:d_fixed] = d_fixed
     algorithm.cuda_objects[:d_moving] = similar(d_fixed)
     gridsize = map(length, algorithm.nodes)
     aperture_width = default_aperture_width(algorithm.fixed, gridsize)
-    algorithm.cuda_objects[:cms] = CMStorage{T}(undef, aperture_width, algorithm.maxshift)
+    return algorithm.cuda_objects[:cms] = CMStorage{T}(undef, aperture_width, algorithm.maxshift)
 end
 
 function close!(algorithm::Apertures)
@@ -70,7 +70,7 @@ function close!(algorithm::Apertures)
             activate(old_active_context)
         end
     end
-    nothing
+    return nothing
 end
 
 """
@@ -134,17 +134,17 @@ pre-processing function, but see also `PreprocessSNF`.
 ```
 
 """
-function Apertures(fixed, nodes::NTuple{N,K}, maxshift, λrange, preprocess=identity; overlap=zeros(Int, N), normalization=:pixels, thresh_fac=(0.5)^ndims(fixed), thresh=nothing, correctbias::Bool=true, tid=1, dev=-1) where {K,N}
+function Apertures(fixed, nodes::NTuple{N, K}, maxshift, λrange, preprocess = identity; overlap = zeros(Int, N), normalization = :pixels, thresh_fac = (0.5)^ndims(fixed), thresh = nothing, correctbias::Bool = true, tid = 1, dev = -1) where {K, N}
     gridsize = map(length, nodes)
     overlap_t = (overlap...,) #Make tuple
     length(overlap) == N || throw(DimensionMismatch("overlap must have $N entries"))
     nimages(fixed) == 1 || error("Register to a single image")
-    isa(λrange, Number) || isa(λrange, Tuple{Number,Number}) || error("λrange must be a number or 2-tuple")
+    isa(λrange, Number) || isa(λrange, Tuple{Number, Number}) || error("λrange must be a number or 2-tuple")
     if thresh == nothing
-        thresh = (thresh_fac/prod(gridsize)) * (normalization==:pixels ? length(fixed) : sumabs2(fixed))
+        thresh = (thresh_fac / prod(gridsize)) * (normalization == :pixels ? length(fixed) : sumabs2(fixed))
     end
     λrange = isa(λrange, Number) ? Float64(λrange) : (Float64(first(λrange)), Float64(last(λrange)))
-    Apertures{typeof(fixed),K,N}(fixed, nodes, maxshift, AffinePenalty{Float64,N}(nodes, first(λrange)), overlap_t, λrange, Float64(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol,Any}())
+    return Apertures{typeof(fixed), K, N}(fixed, nodes, maxshift, AffinePenalty{Float64, N}(nodes, first(λrange)), overlap_t, λrange, Float64(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol, Any}())
 end
 
 function worker(algorithm::Apertures, img, tindex, mon)
@@ -154,20 +154,20 @@ function worker(algorithm::Apertures, img, tindex, mon)
     use_cuda = algorithm.dev >= 0
     if use_cuda
         device!(CuDevice(algorithm.dev))
-        d_fixed  = algorithm.cuda_objects[:d_fixed]
+        d_fixed = algorithm.cuda_objects[:d_fixed]
         d_moving = algorithm.cuda_objects[:d_moving]
-        cms      = algorithm.cuda_objects[:cms]
+        cms = algorithm.cuda_objects[:cms]
         copyto!(d_moving, moving)
         cs = coords_spatial(img)
-        aperture_centers = aperture_grid(map(d->size(img,d),cs), gridsize)
+        aperture_centers = aperture_grid(map(d -> size(img, d), cs), gridsize)
         mms = allocate_mmarrays(eltype(cms), gridsize, algorithm.maxshift)
-        mismatch_apertures!(mms, d_fixed, d_moving, aperture_centers, cms; normalization=algorithm.normalization)
+        mismatch_apertures!(mms, d_fixed, d_moving, aperture_centers, cms; normalization = algorithm.normalization)
     else
         #mms = mismatch_apertures(algorithm.fixed, moving, gridsize, algorithm.maxshift; normalization=algorithm.normalization)
         cs = coords_spatial(img) #
-        aperture_centers = aperture_grid(map(d->size(img,d),cs), gridsize)
+        aperture_centers = aperture_grid(map(d -> size(img, d), cs), gridsize)
         aperture_width = default_aperture_width(algorithm.fixed, gridsize, algorithm.overlap)  #
-        mms = mismatch_apertures(algorithm.fixed, moving, aperture_centers, aperture_width, algorithm.maxshift; normalization=algorithm.normalization)  #
+        mms = mismatch_apertures(algorithm.fixed, moving, aperture_centers, aperture_width, algorithm.maxshift; normalization = algorithm.normalization)  #
     end
     # displaymismatch(mms, thresh=10)
     if algorithm.correctbias
@@ -177,8 +177,8 @@ function worker(algorithm::Apertures, img, tindex, mon)
     cs = Array{Any}(undef, size(mms))
     Qs = Array{Any}(undef, size(mms))
     thresh = algorithm.thresh
-    for i = 1:length(mms)
-        E0[i], cs[i], Qs[i] = qfit(mms[i], thresh; opt=false)
+    for i in 1:length(mms)
+        E0[i], cs[i], Qs[i] = qfit(mms[i], thresh; opt = false)
     end
     mmis = interpolate_mm!(mms)
     λrange = algorithm.λrange
@@ -201,10 +201,10 @@ function worker(algorithm::Apertures, img, tindex, mon)
         warped = warp(moving0, ϕ)
         monitor!(mon, :warped0, warped)
     end
-    mon
+    return mon
 end
 
-cuda_eltype(::Type{T}) where {T<:Union{Float32,Float64}} = T
+cuda_eltype(::Type{T}) where {T <: Union{Float32, Float64}} = T
 cuda_eltype(::Any) = Float32
 
 workertid(alg::Apertures) = alg.tid
