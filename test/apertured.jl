@@ -16,7 +16,7 @@ end
 fn = joinpath(tempdir(), "apertured.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
 algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
-mm_package_loader(algorithms)
+prepare_mm_package(algorithms)
 mons = monitor(algorithms,
                (),
                Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
@@ -28,7 +28,7 @@ driver(fn, algorithms, img, mons)
 fn_pp = joinpath(tempdir(), "apertured_pp.jld")
 pp = PreprocessSNF(0.1, [2,2], [10,10])
 algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; tid=t) for t in aperturedtids]
-mm_package_loader(algorithms)
+prepare_mm_package(algorithms)
 mons = monitor(algorithms,
                (),
                Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
@@ -50,7 +50,7 @@ end
 fnt = joinpath(tempdir(), "apertured_translate.jld")
 maxshift = (3*shift_amplitude, 3*shift_amplitude)
 algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
-mm_package_loader(algorithms)
+prepare_mm_package(algorithms)
 mons = monitor(algorithms,
                (),
                Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
