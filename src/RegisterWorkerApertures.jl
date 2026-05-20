@@ -6,22 +6,22 @@ using RegisterMismatchCommon, RegisterOptimize
 # Note: RegisterMismatch/RegisterMismatchCuda is selected below
 using RegisterWorkerShell  #, RegisterDriver
 
-import RegisterWorkerShell: worker, init!, close!, load_mm_package
+import RegisterWorkerShell: worker, init!, close!, load_mm_package, workertid
 
 export Apertures, monitor, monitor!, worker
 
-mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
+mutable struct Apertures{A<:AbstractArray,K,N} <: AbstractWorker
     fixed::A
     nodes::NTuple{N,K}
     maxshift::NTuple{N,Int}
-    affinepenalty::AffinePenalty{T,N}
+    affinepenalty::AffinePenalty{Float64,N}
     overlap::NTuple{N,Int}
-    λrange::Union{T,Tuple{T,T}}
-    thresh::T
+    λrange::Union{Float64,Tuple{Float64,Float64}}
+    thresh::Float64  # Ipopt requires Float64
     preprocess  # likely of type PreprocessSNF, but could be a function
     normalization::Symbol
     correctbias::Bool
-    workertid::Int
+    tid::Int
     dev::Int
     cuda_objects::Dict{Symbol,Any}
 end
@@ -55,7 +55,7 @@ function cuda_init!(algorithm)
         device!(dev)
     end
     fixed = algorithm.fixed
-    T = cudatype(eltype(fixed))
+    T = cuda_eltype(eltype(fixed))
     d_fixed  = CuArray{T}(sdata(fixed))
     algorithm.cuda_objects[:d_fixed] = d_fixed
     algorithm.cuda_objects[:d_moving] = similar(d_fixed)
@@ -143,10 +143,8 @@ function Apertures(fixed, nodes::NTuple{N,K}, maxshift, λrange, preprocess=iden
     if thresh == nothing
         thresh = (thresh_fac/prod(gridsize)) * (normalization==:pixels ? length(fixed) : sumabs2(fixed))
     end
-    # T = eltype(fixed) <: AbstractFloat ? eltype(fixed) : Float32
-    T = Float64   # Ipopt requires Float64
-    λrange = isa(λrange, Number) ? T(λrange) : (T(first(λrange)), T(last(λrange)))
-    Apertures{typeof(fixed),T,K,N}(fixed, nodes, maxshift, AffinePenalty{T,N}(nodes, first(λrange)), overlap_t, λrange, T(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol,Any}())
+    λrange = isa(λrange, Number) ? Float64(λrange) : (Float64(first(λrange)), Float64(last(λrange)))
+    Apertures{typeof(fixed),K,N}(fixed, nodes, maxshift, AffinePenalty{Float64,N}(nodes, first(λrange)), overlap_t, λrange, Float64(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol,Any}())
 end
 
 function worker(algorithm::Apertures, img, tindex, mon)
@@ -206,10 +204,9 @@ function worker(algorithm::Apertures, img, tindex, mon)
     mon
 end
 
-cudatype(::Type{T}) where {T<:Union{Float32,Float64}} = T
-cudatype(::Any) = Float32
+cuda_eltype(::Type{T}) where {T<:Union{Float32,Float64}} = T
+cuda_eltype(::Any) = Float32
 
-myconvert(::Type{Array{T}}, A::Array{T}) where {T} = A
-myconvert(::Type{Array{T}}, A::AbstractArray) where {T} = copyto!(Array{T}(undef, size(A)), A)
+workertid(alg::Apertures) = alg.tid
 
 end # module

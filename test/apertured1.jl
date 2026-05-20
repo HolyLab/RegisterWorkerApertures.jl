@@ -21,7 +21,7 @@ nodes = (range(1, stop=size(fixed,1), length=5), range(1, stop=size(fixed,2), le
 fixedfilt = pp(fixed)
 maxshift = (30,30)
 alg = Apertures(fixedfilt, nodes, maxshift, λrange, pp)
-mm_package_loader(alg)
+prepare_mm_package(alg)
 mon = monitor(alg, (), Dict(:λs=>0, :datapenalty=>0, :λ=>0, :u=>0, :warped0 => Array{Float64}(undef, size(fixed))))
 mon = driver(alg, moving, mon)
 datapenalty = mon[:datapenalty]
@@ -34,7 +34,7 @@ nodes = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
 umax = maximum(abs.(u_dfm))
 maxshift = (ceil(Int, umax)+5, ceil(Int, umax)+5)
 algorithm = RegisterWorkerApertures.Apertures(fixed, nodes, maxshift, λrange)
-mm_package_loader(algorithm)
+prepare_mm_package(algorithm)
 mon = Dict{Symbol,Any}(:u => Array{SVector{2,Float64}}(undef, gridsize),
                        :mismatch => 0.0,
                        :λ => 0.0,
@@ -48,7 +48,7 @@ apertureoverlap = 0.3;  #Aperture overlap percentage (between 0 and 1)
 aperture_width = default_aperture_width(fixed, gridsize)
 overlap_t = map(x->round(Int64,x*apertureoverlap), aperture_width)
 algorithm = RegisterWorkerApertures.Apertures(fixed, nodes, maxshift, λrange; overlap=overlap_t)
-mm_package_loader(algorithm)
+prepare_mm_package(algorithm)
 mon_overlap = Dict{Symbol,Any}(:u => Array{SVector{2,Float64}}(undef, gridsize),
                        :mismatch => 0.0,
                        :λ => 0.0,
