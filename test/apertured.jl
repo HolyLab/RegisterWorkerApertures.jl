@@ -1,107 +1,121 @@
-### Apertured registration
-# Create the data
-fixed = testimage("cameraman")
-gridsize = (5,5)
-shift_amplitude = 5
-u_dfm = shift_amplitude*randn(2, gridsize..., 4)
-aperturedtids = threadids()
-img = AxisArray(Array{Float64}(undef, size(fixed)..., 4), :y, :x, :time)
-tax = timeaxis(img)
-nodes = map(d->range(1, stop=size(fixed,d), length=gridsize[d]), (1,2))
-for i = 1:4
-    ϕ_dfm = GridDeformation(u_dfm[:,:,:,i], nodes)
-    img[tax(i)] = warp(fixed, ϕ_dfm)
-end
-# Perform the registration
-fn = joinpath(tempdir(), "apertured.jld")
-maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
-prepare_mm_package(algorithms)
-mons = monitor(algorithms,
-               (),
-               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
-                    :warped => Array{Float64}(undef, size(fixed)),
-                    :mismatch => 0.0))
-driver(fn, algorithms, img, mons)
-
-# With preprocessing
-fn_pp = joinpath(tempdir(), "apertured_pp.jld")
-pp = PreprocessSNF(0.1, [2,2], [10,10])
-algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; tid=t) for t in aperturedtids]
-prepare_mm_package(algorithms)
-mons = monitor(algorithms,
-               (),
-               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
-                    :warped => Array{Float64}(undef, size(fixed)),
-                    :warped0 => Array{Float64}(undef, size(fixed)),
-                    :mismatch => 0.0))
-driver(fn_pp, algorithms, img, mons)
-
-# Again, this time with a constant shift (an easy case)
-imgt = copy(img)
-u_dfmt = copy(u_dfm)
-for i = 1:4
-    fill!(view(u_dfmt, 1, :, :, i), i)
-    fill!(view(u_dfmt, 2, :, :, i), 5-i)
-    ϕ_dfm = GridDeformation(u_dfmt[:,:,:,i], nodes)
-    imgt[tax(i)] = warp(fixed, ϕ_dfm)
-end
-
-fnt = joinpath(tempdir(), "apertured_translate.jld")
-maxshift = (3*shift_amplitude, 3*shift_amplitude)
-algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid=t) for t in aperturedtids]
-prepare_mm_package(algorithms)
-mons = monitor(algorithms,
-               (),
-               Dict(:u => Array{SVector{2,Float64}}(undef, gridsize),
-                    :warped => Array{Float64}(undef, size(fixed)),
-                    :mismatch => 0.0))
-driver(fnt, algorithms, imgt, mons)
-
-#using JLD, RegisterCore, RegisterMismatch
-
-jldopen(fnt) do f
-    mm = read(f["mismatch"])
-    u = read(f["u"])
-    @test maximum(abs, u+u_dfmt) < 0.5
-    warped = read(f["warped"])
-    for i = 1:nimages(img)
-        r0 = ratio(mismatch0(fixed, imgt[tax(i)]),0)
-        r1 = ratio(mismatch0(fixed, warped[:,:,i]), 0)
-        @test r0 > r1
+@testset "Apertured registration" begin
+    ### Apertured registration
+    # Create the data
+    fixed = testimage("cameraman")
+    gridsize = (5, 5)
+    shift_amplitude = 5
+    u_dfm = shift_amplitude * randn(2, gridsize..., 4)
+    aperturedtids = threadids()
+    img = AxisArray(Array{Float64}(undef, size(fixed)..., 4), :y, :x, :time)
+    tax = timeaxis(img)
+    nodes = map(d -> range(1, stop = size(fixed, d), length = gridsize[d]), (1, 2))
+    for i in 1:4
+        ϕ_dfm = GridDeformation(u_dfm[:, :, :, i], nodes)
+        img[tax(i)] = warp(fixed, ϕ_dfm)
     end
-end
+    # Perform the registration
+    fn = joinpath(tempdir(), "apertured.jld")
+    maxshift = (3 * shift_amplitude, 3 * shift_amplitude)
+    algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid = t) for t in aperturedtids]
+    prepare_mm_package(algorithms)
+    mons = monitor(
+        algorithms,
+        (),
+        Dict(
+            :u => Array{SVector{2, Float64}}(undef, gridsize),
+            :warped => Array{Float64}(undef, size(fixed)),
+            :mismatch => 0.0
+        )
+    )
+    driver(fn, algorithms, img, mons)
 
-nfailures = 0
+    # With preprocessing
+    fn_pp = joinpath(tempdir(), "apertured_pp.jld")
+    pp = PreprocessSNF(0.1, [2, 2], [10, 10])
+    algorithms = Apertures[Apertures(pp(fixed), nodes, maxshift, 0.001, pp; tid = t) for t in aperturedtids]
+    prepare_mm_package(algorithms)
+    mons = monitor(
+        algorithms,
+        (),
+        Dict(
+            :u => Array{SVector{2, Float64}}(undef, gridsize),
+            :warped => Array{Float64}(undef, size(fixed)),
+            :warped0 => Array{Float64}(undef, size(fixed)),
+            :mismatch => 0.0
+        )
+    )
+    driver(fn_pp, algorithms, img, mons)
 
-jldopen(fn) do f
-    global nfailures
-    mm = read(f["mismatch"])
-    @test all(mm .> 0)
-    warped = read(f["warped"])
-    for i = 1:nimages(img)
-        r0 = ratio(mismatch0(fixed, img[tax(i)]),0)
-        r1 = ratio(mismatch0(fixed, warped[:,:,i]), 0)
-        nfailures += r0 <= r1
+    # Again, this time with a constant shift (an easy case)
+    imgt = copy(img)
+    u_dfmt = copy(u_dfm)
+    for i in 1:4
+        fill!(view(u_dfmt, 1, :, :, i), i)
+        fill!(view(u_dfmt, 2, :, :, i), 5 - i)
+        ϕ_dfm = GridDeformation(u_dfmt[:, :, :, i], nodes)
+        imgt[tax(i)] = warp(fixed, ϕ_dfm)
     end
-end
 
-jldopen(fn_pp) do f
-    global nfailures
-    mm = read(f["mismatch"])
-    @test all(mm .> 0)
-    warped = read(f["warped"])
-    for i = 1:nimages(img)
-        r0 = ratio(mismatch0(pp(fixed), pp(img[tax(i)])),0)
-        r1 = ratio(mismatch0(pp(fixed), warped[:,:,i]), 0)
-        nfailures += r0 <= r1
-    end
-    warped0 = read(f["warped0"])
-    for i = 1:nimages(img)
-        r0 = ratio(mismatch0(fixed, img[tax(i)]),0)
-        r1 = ratio(mismatch0(fixed, warped0[:,:,i]), 0)
-        nfailures += r0 <= r1
-    end
-end
+    fnt = joinpath(tempdir(), "apertured_translate.jld")
+    maxshift = (3 * shift_amplitude, 3 * shift_amplitude)
+    algorithms = Apertures[Apertures(fixed, nodes, maxshift, 0.001; tid = t) for t in aperturedtids]
+    prepare_mm_package(algorithms)
+    mons = monitor(
+        algorithms,
+        (),
+        Dict(
+            :u => Array{SVector{2, Float64}}(undef, gridsize),
+            :warped => Array{Float64}(undef, size(fixed)),
+            :mismatch => 0.0
+        )
+    )
+    driver(fnt, algorithms, imgt, mons)
 
-@test nfailures <= 2
+    #using JLD, RegisterCore, RegisterMismatch
+
+    jldopen(fnt) do f
+        mm = read(f["mismatch"])
+        u = read(f["u"])
+        @test maximum(abs, u + u_dfmt) < 0.5
+        warped = read(f["warped"])
+        for i in 1:nimages(img)
+            r0 = ratio(mismatch0(fixed, imgt[tax(i)]), 0)
+            r1 = ratio(mismatch0(fixed, warped[:, :, i]), 0)
+            @test r0 > r1
+        end
+    end
+
+    nfailures = 0
+
+    jldopen(fn) do f
+        global nfailures
+        mm = read(f["mismatch"])
+        @test all(mm .> 0)
+        warped = read(f["warped"])
+        for i in 1:nimages(img)
+            r0 = ratio(mismatch0(fixed, img[tax(i)]), 0)
+            r1 = ratio(mismatch0(fixed, warped[:, :, i]), 0)
+            nfailures += r0 <= r1
+        end
+    end
+
+    jldopen(fn_pp) do f
+        global nfailures
+        mm = read(f["mismatch"])
+        @test all(mm .> 0)
+        warped = read(f["warped"])
+        for i in 1:nimages(img)
+            r0 = ratio(mismatch0(pp(fixed), pp(img[tax(i)])), 0)
+            r1 = ratio(mismatch0(pp(fixed), warped[:, :, i]), 0)
+            nfailures += r0 <= r1
+        end
+        warped0 = read(f["warped0"])
+        for i in 1:nimages(img)
+            r0 = ratio(mismatch0(fixed, img[tax(i)]), 0)
+            r1 = ratio(mismatch0(fixed, warped0[:, :, i]), 0)
+            nfailures += r0 <= r1
+        end
+    end
+
+    @test nfailures <= 2
+end
