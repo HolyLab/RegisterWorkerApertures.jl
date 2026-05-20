@@ -1,6 +1,6 @@
 name = "RegisterWorkerApertures"
 uuid = "a0a6461a-57d1-11e9-363b-71a271cc5699"
-version = "0.2.4"
+version = "1.0.0"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
 
 [deps]
