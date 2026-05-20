@@ -6,7 +6,7 @@ using RegisterMismatchCommon, RegisterOptimize
 # Note: RegisterMismatch/RegisterMismatchCuda is selected below
 using RegisterWorkerShell  #, RegisterDriver
 
-import RegisterWorkerShell: worker, init!, close!, load_mm_package
+import RegisterWorkerShell: worker, init!, close!, load_mm_package, workertid
 
 export Apertures, monitor, monitor!, worker
 
@@ -21,7 +21,7 @@ mutable struct Apertures{A<:AbstractArray,T,K,N} <: AbstractWorker
     preprocess  # likely of type PreprocessSNF, but could be a function
     normalization::Symbol
     correctbias::Bool
-    workertid::Int
+    tid::Int
     dev::Int
     cuda_objects::Dict{Symbol,Any}
 end
@@ -208,5 +208,7 @@ end
 
 cuda_eltype(::Type{T}) where {T<:Union{Float32,Float64}} = T
 cuda_eltype(::Any) = Float32
+
+workertid(alg::Apertures) = alg.tid
 
 end # module
