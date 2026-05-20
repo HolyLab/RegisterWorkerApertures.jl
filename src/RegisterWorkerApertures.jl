@@ -209,7 +209,4 @@ end
 cudatype(::Type{T}) where {T<:Union{Float32,Float64}} = T
 cudatype(::Any) = Float32
 
-myconvert(::Type{Array{T}}, A::Array{T}) where {T} = A
-myconvert(::Type{Array{T}}, A::AbstractArray) where {T} = copyto!(Array{T}(undef, size(A)), A)
-
 end # module
