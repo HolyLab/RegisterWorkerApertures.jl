@@ -35,7 +35,7 @@ RegisterMismatchCommon = "1"
 RegisterMismatchCuda = "1"
 RegisterOptimize = "1"
 RegisterPenalty = "1"
-RegisterWorkerShell = "1"
+RegisterWorkerShell = "1.0.2"
 StaticArrays = "0.12, 1"
 julia = "1.10"
 
