@@ -21,7 +21,7 @@ import RegisterWorkerShell: worker, init!, close!, load_mm_package, workertid
 
 export Apertures, monitor, monitor!, worker
 
-mutable struct Apertures{A <: AbstractArray, K, N} <: AbstractWorker
+struct Apertures{A <: AbstractArray, K, N} <: AbstractWorker
     fixed::A
     nodes::NTuple{N, K}
     maxshift::NTuple{N, Int}
