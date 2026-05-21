@@ -12,3 +12,14 @@ have one device (one GPU card) per worker.
 
 If your images are not large, you may find it easier to use [BlockRegistration](https://github.com/HolyLab/BlockRegistration.jl) directly.
 It's recommended that you read the documentation of that package before starting with this one.
+
+## Installation
+
+This package is registered in the [HolyLab registry](https://github.com/HolyLab/HolyLabRegistry).
+Add that registry once, then install normally:
+
+```julia
+using Pkg
+pkg"registry add General https://github.com/HolyLab/HolyLabRegistry.git"
+Pkg.add("RegisterWorkerApertures")
+```

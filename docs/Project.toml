@@ -1,5 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+RegisterWorkerApertures = "a0a6461a-57d1-11e9-363b-71a271cc5699"
 
 [compat]
-Documenter = "0.24"
+Documenter = "1"
