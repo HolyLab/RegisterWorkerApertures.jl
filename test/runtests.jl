@@ -3,7 +3,7 @@ using JLD, Test
 using ImageCore, ImageAxes, ImageFiltering, TestImages
 using StaticArrays, Interpolations
 using RegisterCore, RegisterDeformation, RegisterMismatchCommon
-using RegisterWorkerApertures, RegisterDriver
+using RegisterWorkerApertures, RegisterDriver, RegisterWorkerShell
 using AxisArrays: AxisArray
 using Aqua
 Aqua.test_all(RegisterWorkerApertures;
