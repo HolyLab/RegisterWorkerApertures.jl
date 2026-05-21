@@ -85,37 +85,35 @@
         end
     end
 
-    nfailures = 0
+    nfailures = Ref(0)
 
     jldopen(fn) do f
-        global nfailures
         mm = read(f["mismatch"])
         @test all(mm .> 0)
         warped = read(f["warped"])
         for i in 1:nimages(img)
             r0 = ratio(mismatch0(fixed, img[tax(i)]), 0)
             r1 = ratio(mismatch0(fixed, warped[:, :, i]), 0)
-            nfailures += r0 <= r1
+            nfailures[] += r0 <= r1
         end
     end
 
     jldopen(fn_pp) do f
-        global nfailures
         mm = read(f["mismatch"])
         @test all(mm .> 0)
         warped = read(f["warped"])
         for i in 1:nimages(img)
             r0 = ratio(mismatch0(pp(fixed), pp(img[tax(i)])), 0)
             r1 = ratio(mismatch0(pp(fixed), warped[:, :, i]), 0)
-            nfailures += r0 <= r1
+            nfailures[] += r0 <= r1
         end
         warped0 = read(f["warped0"])
         for i in 1:nimages(img)
             r0 = ratio(mismatch0(fixed, img[tax(i)]), 0)
             r1 = ratio(mismatch0(fixed, warped0[:, :, i]), 0)
-            nfailures += r0 <= r1
+            nfailures[] += r0 <= r1
         end
     end
 
-    @test nfailures <= 2
+    @test nfailures[] <= 2
 end
