@@ -1,11 +1,22 @@
 module RegisterWorkerApertures
 
-using ImageCore, CoordinateTransformations, Interpolations, SharedArrays
-using RegisterCore, RegisterDeformation, RegisterFit, RegisterPenalty
-using RegisterMismatchCommon, RegisterOptimize
+using CoordinateTransformations: CoordinateTransformations
+using ImageCore: ImageCore, coords_spatial, nimages
+using ImageTransformations: warp
+using Interpolations: Interpolations
+using RegisterCore: RegisterCore, maxshift
+using RegisterDeformation: RegisterDeformation
+using RegisterFit: RegisterFit, qfit
+using RegisterMismatchCommon: RegisterMismatchCommon, allocate_mmarrays,
+                              aperture_grid, correctbias, correctbias!,
+                              default_aperture_width, mismatch,
+                              mismatch_apertures
+using RegisterOptimize: RegisterOptimize
+using RegisterPenalty: RegisterPenalty, AffinePenalty, interpolate_mm!
+using RegisterWorkerShell: RegisterWorkerShell, AbstractWorker, getindex_t,
+                           monitor, monitor!
+using SharedArrays: SharedArrays, sdata
 # Note: RegisterMismatch/RegisterMismatchCuda is selected below
-using RegisterWorkerShell  #, RegisterDriver
-
 import RegisterWorkerShell: worker, init!, close!, load_mm_package, workertid
 
 export Apertures, monitor, monitor!, worker

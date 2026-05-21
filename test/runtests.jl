@@ -10,6 +10,10 @@ Aqua.test_all(RegisterWorkerApertures;
     unbound_args = (broken=true,),
     stale_deps = (ignore=[:CUDA, :RegisterMismatch, :RegisterMismatchCuda],),
     piracies = (treat_as_own=[RegisterWorkerShell.load_mm_package],))
+using ExplicitImports
+@test check_no_implicit_imports(RegisterWorkerApertures) === nothing
+@test check_no_stale_explicit_imports(RegisterWorkerApertures) === nothing
+@test check_all_explicit_imports_via_owners(RegisterWorkerApertures) === nothing
 
 if !(haskey(ENV, "CI")&&(ENV["CI"] == "true"))
     include("apertured_cuda.jl")
