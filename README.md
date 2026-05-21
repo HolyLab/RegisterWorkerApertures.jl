@@ -6,3 +6,4 @@ It wraps the [BlockRegistration](https://github.com/HolyLab/BlockRegistration.jl
 For an introduction, see the documentation:
 
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://HolyLab.github.io/RegisterWorkerApertures.jl/stable)
+[![Aqua QA](https://juliatesting.github.io/Aqua.jl/dev/assets/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
