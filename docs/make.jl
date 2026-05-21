@@ -3,9 +3,10 @@ using RegisterWorkerApertures
 
 makedocs(
     sitename = "RegisterWorkerApertures",
-    format = Documenter.HTML(prettyurls = get(ENV, "CI", nothing) == "true"),
+    format = Documenter.HTML(),
     modules = [RegisterWorkerApertures],
     authors = "Timothy E. Holy",
+    checkdocs = :exports,
     linkcheck = !("skiplinks" in ARGS),
     pages = [
         "Home" => "index.md",
