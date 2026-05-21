@@ -1,3 +1,20 @@
+"""
+    RegisterWorkerApertures
+
+Apertured (blocked) image registration worker for the Register ecosystem.
+
+Divides the image domain into a grid of overlapping apertures, computes
+per-aperture mismatch arrays, fits quadratic surfaces to those mismatches,
+and solves a penalized optimization to recover a smooth deformation field.
+Both CPU and CUDA execution paths are supported.
+
+# Primary interface
+
+- [`Apertures`](@ref) — construct a registration worker
+- `monitor`, `monitor!` — re-exported from `RegisterWorkerShell`; create and
+  update a dict that collects registration outputs across frames
+- [`worker`](@ref) — execute one registration step (typically called by `driver`)
+"""
 module RegisterWorkerApertures
 
 using CoordinateTransformations: CoordinateTransformations
@@ -37,6 +54,14 @@ struct Apertures{A <: AbstractArray, K, N} <: AbstractWorker
     cuda_objects::Dict{Symbol, Any}
 end
 
+"""
+    load_mm_package(dev)
+
+Load the appropriate mismatch computation package.
+
+Loads `RegisterMismatchCuda` (and `CUDA`) when `dev >= 0` (a CUDA device index),
+or `RegisterMismatch` when `dev < 0` (CPU mode). Returns `nothing`.
+"""
 function load_mm_package(dev)
     if dev >= 0
         eval(:(using CUDA, RegisterMismatchCuda))
@@ -46,6 +71,14 @@ function load_mm_package(dev)
     return nothing
 end
 
+"""
+    init!(algorithm::Apertures)
+
+Initialize the worker before registration begins.
+
+When `algorithm.dev >= 0` (GPU mode), allocates device arrays and prepares
+`CMStorage` via [`cuda_init!`](@ref). No-op in CPU mode.
+"""
 function init!(algorithm::Apertures)
     if algorithm.dev >= 0
         cuda_init!(algorithm)
@@ -53,6 +86,17 @@ function init!(algorithm::Apertures)
     return nothing
 end
 
+"""
+    cuda_init!(algorithm)
+
+Allocate CUDA resources for `algorithm` and store them in `algorithm.cuda_objects`.
+
+Selects the device `algorithm.dev`, saves the previously active CUDA context, and
+pre-allocates three objects:
+- `:d_fixed` — `CuArray` copy of `algorithm.fixed`
+- `:d_moving` — same-sized scratch buffer
+- `:cms` — `CMStorage` sized to the aperture grid and `algorithm.maxshift`
+"""
 function cuda_init!(algorithm)
     dev = CuDevice(algorithm.dev)
     global old_active_context
@@ -75,6 +119,14 @@ function cuda_init!(algorithm)
     return algorithm.cuda_objects[:cms] = CMStorage{T}(undef, aperture_width, algorithm.maxshift)
 end
 
+"""
+    close!(algorithm::Apertures)
+
+Restore the CUDA context that was active before [`init!`](@ref) was called.
+
+When `algorithm.dev >= 0` (GPU mode) and a prior context was saved during
+`init!`, reactivates that context. No-op in CPU mode.
+"""
 function close!(algorithm::Apertures)
     if algorithm.dev >= 0
         if old_active_context != nothing
@@ -85,65 +137,48 @@ function close!(algorithm::Apertures)
 end
 
 """
-`alg = Apertures(fixed, nodes, maxshift, λ, [preprocess=identity]; kwargs...)`
-creates a worker-object for performing "apertured" (blocked)
-registration.  `fixed` is the reference image, `nodes` specifies the
-grid of apertures, `maxshift` represents the largest shift (in pixels)
-that will be evaluated, and `λ` is the coefficient for the deformation
-penalty (higher values enforce a more affine-like
-deformation). `preprocess` allows you to apply a transformation (e.g.,
-filtering) to the `moving` images before registration; `fixed` should
-already have any such transformations applied.
+    Apertures(fixed, nodes, maxshift, λrange, [preprocess=identity]; kwargs...)
 
-Alternatively, `λ` may be specified as a `(λmin, λmax)` tuple, in
-which case the "best" `λ` is chosen for you automatically via the
-algorithm described in `auto_λ`.  If you `monitor` the variable
-`datapenalty`, you can inspect the quality of the sigmoid used to
-choose `λ`.
+Create a worker object for apertured (blocked) image registration.
 
-Registration is performed by calling `driver`.
+`fixed` is the single reference image. `nodes` is an `N`-tuple of node vectors
+(typically `range` objects) that define the aperture grid. `maxshift` is an
+`N`-tuple of integers giving the maximum shift (in pixels) to evaluate in each
+dimension. `λrange` is either a single `Float64` (fixed regularization
+coefficient) or a `(λmin, λmax)` tuple; in the latter case the best `λ` is
+selected automatically via `auto_λ` and the search intermediates are available
+via `monitor`. `preprocess` is an optional function applied to each moving image
+before registration; `fixed` should already have the same transformation applied
+(see also `PreprocessSNF`).
 
-## Example
+# Keyword arguments
 
-Suppose your images are somewhat noisy, in which case a bit of
-smoothing might help considerably.  Here we'll illustrate the use of a
-pre-processing function, but see also `PreprocessSNF`.
+- `overlap`: `N`-vector of integers specifying the overlap (in pixels) between
+  adjacent apertures; default `zeros(Int, N)`.
+- `normalization`: `:pixels` (default) normalizes mismatch by aperture area;
+  `:intensity` normalizes by total intensity in the aperture.
+- `thresh_fac`: factor used to compute `thresh` when not supplied explicitly;
+  default `(0.5)^ndims(fixed)`.
+- `thresh`: mismatch threshold below which a quadratic fit is attempted;
+  computed from `thresh_fac` and `normalization` by default.
+- `correctbias`: apply bias correction to mismatch arrays; default `true`.
+- `tid`: thread/process ID for this worker; default `1`.
+- `dev`: CUDA device index (`>= 0` to use GPU, `-1` for CPU); default `-1`.
 
+Pass the returned object to `driver` or directly to `worker`.
+
+# Example
+
+```jldoctest
+julia> fixed = rand(Float64, 50, 50);
+
+julia> nodes = (range(1, 50, length=5), range(1, 50, length=7));
+
+julia> alg = Apertures(fixed, nodes, (5, 5), (1e-6, 100.0));
+
+julia> alg.dev
+-1
 ```
-   # Raw images are fixed0 and moving0, both two-dimensional
-   pp = img -> imfilter_gaussian(img, [3, 3])
-   fixed = pp(fixed0)
-   # We'll use a 5x7 grid of apertures
-   nodes = (linspace(1, size(fixed,1), 5), linspace(1, size(fixed,2), 7))
-   # Allow shifts of up to 30 pixels in any direction
-   maxshift = (30,30)
-   # Try a range of λ values
-   λrange = (1e-6, 100)
-
-   # Create the algorithm-object
-   alg = Apertures(fixed, nodes, maxshift, λrange, pp)
-
-   # Monitor the datapenalty, the chosen value of λ, the deformation
-   # u, and also collect the corrected (warped) image. By asking for
-   # :warped0, we apply the warping to the unfiltered moving image
-   # (:warped would refer to the filtered moving image).
-   # We pre-allocate space for :warped0 to illustrate a trick for
-   # reducing the overhead of communication between worker and driver
-   # processes, even though this example uses just a single process
-   # (see `monitor` for further detail).  The other arrays are small,
-   # so we don't worry about overhead for them.
-   mon = monitor(alg, (), Dict(:λs=>0, :datapenalty=>0, :λ=>0, :u=>0, :warped0 => Array(Float64, size(fixed))))
-
-   # Run the algorithm
-   mon = driver(algorithm, moving0, mon)
-
-   # Plot the datapenalty and see how sigmoidal it is. Assumes you're
-   # `using Immerse`.
-   λs = mon[:λs]
-   datapenalty = mon[:datapenalty]
-   plot(x=λs, y=datapenalty, xintercept=[mon[:λ]], Geom.point, Geom.vline, Guide.xlabel("λ"), Guide.ylabel("Data penalty"), Scale.x_log10)
-```
-
 """
 function Apertures(fixed, nodes::NTuple{N, K}, maxshift, λrange, preprocess = identity; overlap = zeros(Int, N), normalization = :pixels, thresh_fac = (0.5)^ndims(fixed), thresh = nothing, correctbias::Bool = true, tid = 1, dev = -1) where {K, N}
     gridsize = map(length, nodes)
@@ -158,6 +193,30 @@ function Apertures(fixed, nodes::NTuple{N, K}, maxshift, λrange, preprocess = i
     return Apertures{typeof(fixed), K, N}(fixed, nodes, maxshift, AffinePenalty{Float64, N}(nodes, first(λrange)), overlap_t, λrange, Float64(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol, Any}())
 end
 
+"""
+    worker(algorithm::Apertures, img, tindex, mon)
+
+Perform apertured registration of the image at time index `tindex` in `img`
+against the fixed reference stored in `algorithm`.
+
+`img` is an image array with a time axis; `tindex` is the integer index into
+that axis. `mon` is a monitoring dict created by `monitor`; it is updated
+in-place with any requested outputs and returned.
+
+Monitored keys written unconditionally:
+- `:mismatch` — total mismatch value after optimization
+- `:u` — the deformation field `ϕ.u`
+
+Monitored keys written only when `λrange` is a `(λmin, λmax)` tuple:
+- `:λ` — chosen regularization coefficient
+- `:λs` — all `λ` values tried by `auto_λ`
+- `:datapenalty` — data penalty at each `λ`
+- `:sigmoid_quality` — quality of the sigmoid fit
+
+Monitored keys written only when present in `mon`:
+- `:warped` — preprocessed moving image warped by the recovered deformation `ϕ`
+- `:warped0` — raw (unpreprocessed) moving image warped by `ϕ`
+"""
 function worker(algorithm::Apertures, img, tindex, mon)
     moving0 = getindex_t(img, tindex)
     moving = algorithm.preprocess(moving0)
@@ -215,6 +274,13 @@ function worker(algorithm::Apertures, img, tindex, mon)
     return mon
 end
 
+"""
+    cuda_eltype(T)
+
+Return the element type to use for CUDA arrays given array element type `T`.
+
+Passes `Float32` and `Float64` through unchanged; maps all other types to `Float32`.
+"""
 cuda_eltype(::Type{T}) where {T <: Union{Float32, Float64}} = T
 cuda_eltype(::Any) = Float32
 
