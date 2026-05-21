@@ -8,6 +8,7 @@ using AxisArrays: AxisArray
 using Aqua
 Aqua.test_all(RegisterWorkerApertures;
     unbound_args = (broken=true,),
+    persistent_tasks = (broken=true,),
     stale_deps = (ignore=[:CUDA, :RegisterMismatch, :RegisterMismatchCuda],),
     piracies = (treat_as_own=[RegisterWorkerShell.load_mm_package],))
 using ExplicitImports
