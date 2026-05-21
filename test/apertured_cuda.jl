@@ -89,3 +89,15 @@
 
     nothing
 end
+
+@testset "cuda_eltype" begin
+    @test RegisterWorkerApertures.cuda_eltype(Float32) === Float32
+    @test RegisterWorkerApertures.cuda_eltype(Float64) === Float64
+    @test RegisterWorkerApertures.cuda_eltype(Gray{N0f8}) === Float32
+end
+
+@testset "workertid" begin
+    nodes = (range(1, stop = 64, length = 4), range(1, stop = 64, length = 4))
+    alg = Apertures(rand(Float32, 64, 64), nodes, (5, 5), 0.01; tid = 3, dev = -1)
+    @test workertid(alg) == 3
+end
