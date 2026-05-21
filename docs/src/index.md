@@ -1,5 +1,9 @@
 # RegisterWorkerApertures.jl
 
+```@docs
+RegisterWorkerApertures.RegisterWorkerApertures
+```
+
 This package provides convenient distributed computing support for the
 [BlockRegistration]
 suite of image registration packages.
