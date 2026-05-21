@@ -170,6 +170,8 @@ Pass the returned object to `driver` or directly to `worker`.
 # Example
 
 ```jldoctest
+julia> using RegisterWorkerApertures
+
 julia> fixed = rand(Float64, 50, 50);
 
 julia> nodes = (range(1, 50, length=5), range(1, 50, length=7));
