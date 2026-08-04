@@ -188,8 +188,13 @@ function Apertures(fixed, nodes::NTuple{N, K}, maxshift, λrange, preprocess = i
     length(overlap) == N || throw(DimensionMismatch("overlap must have $N entries"))
     nimages(fixed) == 1 || error("Register to a single image")
     isa(λrange, Number) || isa(λrange, Tuple{Number, Number}) || error("λrange must be a number or 2-tuple")
+    normalization ∈ (:pixels, :intensity) ||
+        error("normalization must be :pixels or :intensity, got :$normalization")
     if thresh == nothing
-        thresh = (thresh_fac / prod(gridsize)) * (normalization == :pixels ? length(fixed) : sumabs2(fixed))
+        # Match the mismatch denominator the apertures are scored against, so
+        # `thresh_fac` means the same fraction under either normalization.
+        thresh = (thresh_fac / prod(gridsize)) *
+            (normalization == :pixels ? length(fixed) : sum(abs2, fixed))
     end
     λrange = isa(λrange, Number) ? Float64(λrange) : (Float64(first(λrange)), Float64(last(λrange)))
     return Apertures{typeof(fixed), K, N}(fixed, nodes, maxshift, AffinePenalty{Float64, N}(nodes, first(λrange)), overlap_t, λrange, Float64(thresh), preprocess, normalization, correctbias, tid, dev, Dict{Symbol, Any}())
